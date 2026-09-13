@@ -20,14 +20,6 @@ Travel agencies can search for available hotel rooms and create reservations. Th
 - [10. Production readiness](docs/10-production-readiness.md)
 - [11. Trade-offs](docs/11-trade-offs.md)
 
-The optional implementation is intentionally not started. The written design is the priority for this assignment.
-
-## Technology choice
-
-- Java 21 and Spring Boot for the optional implementation.
-- PostgreSQL as the source of truth for hotel, inventory, pricing, and reservation data.
-- A REST API over HTTPS for travel agencies.
-
 ## AI tool usage
 
 See [AI_USAGE.md](AI_USAGE.md).
