@@ -70,7 +70,3 @@ For `PRICE_ASC`, the service sorts a hotel by the lowest total price among its m
 ## Change between pages
 
 Availability and price can change between pages, so a hotel can move, appear twice, or be missed. This does not affect booking correctness: search is not a hold, and reservations read and lock current inventory before confirmation.
-
-## Alternative considered
-
-Cursor pagination uses a marker from the last result. It is better for very deep pages and can reduce changed-list effects, but is harder for clients and does not support direct page navigation. It is the next option to evaluate if result sizes or traffic grow significantly.

@@ -10,9 +10,9 @@ The application does not decide who receives the last room. PostgreSQL does.
 
 The daily availability row is the source of truth. The service asks PostgreSQL to lock that row before it reads and changes it. This works even when the service runs on several application instances.
 
-### Weak approach versus the selected approach
+### Why row locks are needed
 
-A weak approach is: read `availableRooms = 1`, decide that it is enough, and update later without a lock. Two requests can both read `1` before either update happens. Both might then create a reservation.
+Without a lock, two requests can both read `availableRooms = 1` before either updates it. Both might then create a reservation.
 
 The selected approach locks the affected availability rows inside one short database transaction. Only one transaction can change a locked row at a time.
 
@@ -34,9 +34,7 @@ FOR UPDATE;
 
 ### What "short transaction" means
 
-A short transaction starts immediately before the inventory rows are locked and ends as soon as the required database changes commit or roll back. It is not a fixed time limit. It contains only the database work needed for the reservation: lock rows, validate inventory, reduce it, create the reservation, and store the technical idempotency result when needed.
-
-It must not call a payment provider, send an email, or wait for another slow external service. Keeping this critical section small reduces how long competing requests wait for locks and lowers the risk of timeouts.
+A short transaction starts immediately before locking inventory and ends as soon as the database changes commit or roll back. It only locks and checks inventory, reduces it, creates the reservation, and stores the idempotency result. It makes no payment, email, or other slow external call, so competing requests do not wait longer than necessary.
 
 The transaction then follows this sequence:
 
@@ -59,13 +57,13 @@ Assume exactly one room remains for the selected room type and date range.
 | 3 | Reduces availability to `0`, creates the reservation, and commits. | Continues after A commits. |
 | 4 | Receives `201 Created`. | Reads the updated value `0`, rolls back, and receives `409 Conflict`. |
 
+A and B are only labels. PostgreSQL's database lock manager lets whichever transaction obtains the lock first continue; the other waits. The application does not choose a winner.
+
 If request A fails before commit, PostgreSQL rolls back its inventory change and releases the lock. Request B can then lock the row and may succeed.
 
 ## Alternative considered: conditional update
 
-Another approach is an atomic conditional update, for example: reduce availability only where `available_rooms >= numberOfRooms`.
-
-For one date, this can be compact. For a multi-night stay, the service must still use a transaction, verify that every required date was updated, and roll back if even one date could not be reduced. It is correct when implemented carefully, but is less direct to explain than locking all stay dates, checking them, and creating the reservation in one transaction.
+A conditional update reduces inventory only where `available_rooms >= numberOfRooms`. It is compact for one date, but a multi-night stay still needs a transaction that checks every date and rolls back if one fails. We chose row locks because the sequence is clearer to explain.
 
 ## Failure boundary
 

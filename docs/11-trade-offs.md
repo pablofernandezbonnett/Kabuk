@@ -2,19 +2,19 @@
 
 ## Why this matters
 
-This first version focuses on correct availability and reservation behaviour. The trade-offs below make its current scope clear and identify the next work that would add the most confidence.
+This first version focuses on correct availability and reservations. The trade-offs make its scope and next priorities clear.
 
 ## What I would improve with another week
 
-I would build and test a small PostgreSQL-based reservation vertical slice for concurrency and idempotency. The goal would be to validate the current design with real transactions, including two requests for the last room and a retry after a lost response.
+I would build and test a small PostgreSQL reservation flow for concurrency and idempotency. It would use real transactions for two requests for the last room and a retry after a lost response.
 
-This is not because the design is assumed to be wrong. Database concurrency and failure behaviour must be tested in the real components that enforce them. I would validate the highest-risk rules before adding more product features.
+Concurrency and failure behaviour must be tested in the real components that enforce them. I would validate these high-risk rules before adding product features.
 
 ## What is intentionally simple
 
-The reservation model supports one hotel, one room type, one date range, and a `CONFIRMED` status. It does not include payment, cancellation, or several room types in one reservation.
+One reservation has one hotel, one room type, one date range, and a `CONFIRMED` status. Payment, cancellation, and several room types are outside the first version.
 
-The architecture also keeps one service and one PostgreSQL database. It does not add a queue or a live availability cache because an agency needs an immediate, correct reservation result. These limits keep the API, data model, and transaction easy to explain and change when a real new requirement appears.
+The architecture has one service and one PostgreSQL database. It has no queue or live availability cache because agencies need an immediate reservation result. These limits keep the API, data model, and transaction easy to change when a real requirement appears.
 
 ## Assumptions
 
@@ -28,10 +28,10 @@ The architecture also keeps one service and one PostgreSQL database. It does not
 
 ## Largest technical risk
 
-The largest technical risk is high contention for popular room types and dates. Row-level locks prevent overselling, but many reservation attempts for the same inventory can wait and may time out.
+The largest technical risk is many reservation attempts for popular rooms and dates. Row locks prevent overselling, but competing requests can wait and time out.
 
-The design reduces this risk with short transactions, a consistent date-lock order, and no external calls while locks are held. Real PostgreSQL integration tests and production monitoring of lock waits and reservation failures are needed to validate those controls.
+Short transactions, a consistent date-lock order, and no external calls while locks are held reduce this risk. PostgreSQL integration tests and production monitoring of lock waits and reservation failures validate these controls.
 
 ## Practical rule
 
-> Keep the first version small, validate its highest-risk correctness rules with real components, and extend it only when product or traffic needs justify the added complexity.
+> Keep the first version small, validate its highest-risk rules with real components, and add complexity only when product or traffic needs require it.

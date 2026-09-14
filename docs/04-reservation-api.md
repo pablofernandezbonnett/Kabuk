@@ -56,7 +56,7 @@ The client does not send a price. The service calculates it from its own availab
 
 The returned price includes mandatory taxes and fees that the service can calculate. Optional add-ons are outside the first version. A special agency rate comes from the authenticated `agencyId` and server-side data, never caller-provided price data.
 
-There is no payment step in this assignment. After the inventory and reservation transaction succeeds, the reservation status is `CONFIRMED`. `COMPLETED` is not used because it could mean that the hotel stay has already ended.
+There is no payment step in this assignment. After the inventory and reservation transaction succeeds, the reservation status is `CONFIRMED`.
 
 With future payments, a reservation could become `PENDING_PAYMENT` before `CONFIRMED`. Payment failures, expiry, and compensation rules make that a separate future flow.
 

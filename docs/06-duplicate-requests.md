@@ -8,9 +8,9 @@ A network timeout does not prove that a reservation failed. The service may have
 
 An `Idempotency-Key` identifies one logical reservation operation for one agency. It is not a reservation ID and cannot be reused for a different reservation. A retry sends the same key and receives the first result again.
 
-### Weak approach versus the selected approach
+### Why store the key and result
 
-A weak approach creates a reservation for every request, so a timeout can create the same reservation twice. The selected approach records the key and result in PostgreSQL; a unique constraint makes same-key requests one logical operation.
+Creating a reservation for every request lets a timeout create the same reservation twice. The selected approach records the key and result in PostgreSQL; a unique constraint makes same-key requests one logical operation.
 
 ## Idempotency records in PostgreSQL
 
@@ -34,7 +34,7 @@ created_at
 expires_at
 ```
 
-`reservation_id` can be empty for a business conflict. PostgreSQL enforces uniqueness on `(agency_id, idempotency_key)`, so different agencies can use the same key. The request fingerprint is a comparison value derived from reservation fields; it distinguishes a retry from reuse of a key with different data. No hashing algorithm is required by this design.
+`reservation_id` is empty when the result is a business conflict because no reservation was created. While it is retained, PostgreSQL keeps one idempotency record per agency and key, so different agencies can use the same key value. The request fingerprint compares the important reservation fields. It tells a real retry from the same key being used for a different reservation.
 
 ## Selected flow
 
@@ -42,7 +42,7 @@ expires_at
 2. The service looks for a non-expired idempotency record for that agency and key.
 3. If it finds one with the same request fingerprint, it returns the stored response without running the reservation flow again.
 4. If it finds one with a different fingerprint, it returns `409 Conflict`.
-5. If no non-expired record exists, the transaction first removes any expired record for that same key, then claims the key, confirms inventory, creates the reservation when possible, and stores the final response.
+5. If there is no valid record, the transaction removes an expired record for that key, claims the key, confirms inventory, creates the reservation when possible, and stores the final response.
 6. The transaction commits. The reservation, inventory update, and idempotency record become visible together.
 
 The unique constraint also handles two identical concurrent requests. One transaction claims the key; the other waits, then replays its result. If the first rolls back, its claim and reservation disappear, so the retry can be processed safely.
@@ -108,9 +108,11 @@ Changing an existing reservation is a separate operation with its own endpoint a
 
 ## Retention and cleanup
 
-The first version keeps records for a configurable 24-hour window. It writes `expires_at` and periodically removes expired records; a request also removes its own expired key before claiming it, so correctness does not depend on exact cleanup timing.
+The idempotency record is kept for a configurable 24-hour retry window. Its expiry does not affect the confirmed reservation. Reservations have their own business retention and archiving policy.
 
-Within the window, the same key and fields return the original result. Afterwards, the agency uses `reservationId` to retrieve an old reservation rather than reusing the key. Cleanup never deletes reservations; retention and archiving are separate business decisions.
+Within the window, the same key and request return the stored result without running the reservation flow again. After the window, the stored result is no longer available. The service removes the expired record and treats a later request with that key as a new reservation request.
+
+This means an agency must not retry an old request after the window. It should use the `reservationId` from the original response to retrieve the reservation instead. Cleanup never deletes reservations.
 
 ## Optional Redis response cache
 

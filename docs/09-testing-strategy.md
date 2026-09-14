@@ -2,7 +2,7 @@
 
 ## Goal
 
-The service must return correct search results, prevent overselling, and keep retries safe. Different tests give evidence at different boundaries. A fast unit test cannot prove that PostgreSQL locks rows correctly, and a database test cannot by itself prove that the public HTTP contract is clear.
+The service must return correct searches, prevent overselling, and keep retries safe. Each test type checks a different boundary: unit tests cannot prove PostgreSQL locking, and database tests cannot prove the public HTTP contract.
 
 ## Mental model
 
@@ -12,15 +12,15 @@ Test the rule where it lives:
 - **Integration tests** test our service, transaction handling, and a real PostgreSQL database together.
 - **API tests** call the service through HTTP and check the contract seen by an agency.
 
-Most tests should be unit tests because they are fast and isolate business rules. Fewer integration and API tests cover the high-risk paths that units cannot prove. This service has no browser UI, so browser tests are outside the assignment scope.
+Most tests are unit tests because they are fast. Fewer integration and API tests cover the high-risk paths that unit tests cannot prove. This service has no browser UI, so browser tests are outside this scope.
 
 ## Why use Gherkin-style scenarios
 
-The examples use `Given`, `When`, and `Then` to state initial data, action, and outcome clearly for technical and non-technical reviewers. This documents behaviour; the scenarios can later become Java tests in a suitable framework.
+`Given`, `When`, and `Then` make the initial data, action, and outcome clear to technical and non-technical readers. They document expected behaviour and can later become Java tests.
 
 ## Unit tests
 
-Unit tests cover pure local rules. They do not use mocks as evidence that inventory or locking works; those behaviours belong to integration tests.
+Unit tests cover local rules. They do not prove inventory or locking; those behaviours belong to integration tests.
 
 Examples of unit-test coverage:
 
@@ -45,7 +45,7 @@ This proves the price rule without HTTP or a database.
 
 ## Integration tests
 
-Integration tests verify the reservation service, transaction manager, persistence mapping, constraints, and PostgreSQL row locks together. They use a real isolated PostgreSQL instance in Docker or a test container, with the same migrations and explicit fixture data. This is more useful than an in-memory database or mock for SQL, constraints, transactions, and concurrency.
+Integration tests run the reservation service, transaction handling, constraints, and PostgreSQL row locks together. They use an isolated PostgreSQL instance in Docker or a test container, with the same migrations and fixture data. An in-memory database or mock cannot prove SQL, constraints, transactions, or concurrency.
 
 Examples of integration-test coverage:
 
@@ -67,13 +67,13 @@ Scenario: Confirm only one reservation when one room remains
   And exactly one reservation is stored
 ```
 
-This test has high value because it verifies the booking invariant with the actual database behaviour described in [Part 5](05-concurrency.md).
+This verifies the booking rule with the real database behaviour from [Part 5](05-concurrency.md).
 
 ## API tests
 
-API tests verify the public HTTP contract: route, parameters, JSON, status, headers, and error format. They are automated HTTP requests, not manual `curl` checks or load tests; load testing belongs to [Part 8](08-performance-investigation.md).
+API tests verify the public HTTP contract: route, parameters, JSON, status, headers, and errors. They are automated HTTP requests, not manual `curl` checks or load tests. Load testing belongs to [Part 8](08-performance-investigation.md).
 
-The external authentication service is outside this assignment. API tests use a controlled authenticated identity at the gateway/API boundary and cover missing or invalid authentication as `401` and a missing scope as `403`.
+The external authentication service is outside this scope. API tests use a controlled identity at the gateway/API boundary and cover missing or invalid authentication as `401` and a missing scope as `403`.
 
 ### Example: availability search contract
 
@@ -86,7 +86,7 @@ Scenario: Search Osaka availability with valid input
   And totalPrice marks taxesAndFeesIncluded as true
 ```
 
-The request and the important response fields are visible in the HTTP example below:
+The HTTP example shows the request and key response fields:
 
 ```http
 GET /v1/hotels/availability?destinationId=dest_osaka&checkIn=2026-10-10&checkOut=2026-10-12&adults=2&rooms=1

@@ -2,11 +2,11 @@
 
 ## Why this design
 
-The service must return hotel availability quickly and must not sell the same room twice. One backend service and PostgreSQL keep the booking transaction local and easy to reason about. Queues, caches, and several services are deferred until they solve a measured problem.
+One service and PostgreSQL keep booking correctness in one local transaction. Queues, caches, and more services are deferred until a measured need appears.
 
 ## Mental model
 
-A hotel search reads a changing snapshot. A reservation turns selected daily availability into a confirmed booking in one database transaction: PostgreSQL writes both the inventory change and reservation, or neither. That is why the first version keeps the booking rules and source of truth in one service and one database.
+A search is a changing snapshot. A reservation checks daily availability and writes the inventory change and reservation together: both changes commit or neither does.
 
 ## Architecture diagram
 
@@ -56,7 +56,7 @@ The API Gateway applies rate and request limits before the service starts databa
 
 ## API style and HTTP contract
 
-Travel agencies use a REST API over HTTPS with JSON request and response bodies. It provides a small, resource-based contract that clients can use with standard HTTP tools.
+Travel agencies integrate through a REST API over HTTPS using JSON. REST gives them a small resource-based contract with standard HTTP methods and status codes.
 
 `GET /v1/hotels/availability` reads current availability and does not change data. `POST /v1/reservations` creates a reservation. The endpoint-specific request and response examples are described in [Part 2](02-availability-api.md) and [Part 4](04-reservation-api.md).
 
@@ -91,12 +91,12 @@ A reservation needs an immediate result. The client must know whether the rooms 
 
 ### No cache for live availability in the first version
 
-Cached availability can be stale. PostgreSQL is the source of truth, and every reservation checks it again before confirmation. A later cache may hold stable hotel details or short-lived search results, but never decide availability or reservation idempotency.
+Cached availability may not show the latest room changes. PostgreSQL is the source of truth, and every reservation checks it again before confirmation. A later cache may hold stable hotel details or short-lived search results, but never decide availability or reservation idempotency.
 
 ### One service, not microservices
 
-One service keeps the transaction and debugging path simple. A later split may be useful if a clear team, scale, or deployment boundary appears. It is not needed only because the platform has many hotels.
+One service keeps the transaction and debugging path simple. A later split may be useful if a clear team, scale, or deployment boundary appears.
 
 ### One room type per reservation
 
-The first version reserves one room type and a quantity of that type. This matches the assignment and keeps search, booking, and inventory checks straightforward. A future version can add reservation items and guest allocation per room.
+The first version reserves one room type and a quantity of that type. This matches the assignment and keeps search, booking, and inventory checks straightforward.
